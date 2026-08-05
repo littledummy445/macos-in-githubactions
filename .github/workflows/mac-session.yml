@@ -1,0 +1,58 @@
+name: Interactive macOS In-Browser Desktop
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mac-desktop:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure macOS Screen Sharing & Password
+        run: |
+          # Set password using dscl with sudo
+          sudo dscl . -passwd /Users/runner secret123
+
+          # Enable Apple Remote Desktop / VNC
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate -configure -access -on \
+            -clientconfigure -instances -users runner \
+            -access -on -privs -all \
+            -restart -agent -console
+
+      - name: Setup noVNC Web Interface
+        run: |
+          # Install python websockify dependencies
+          pip3 install numpy
+          git clone https://github.com/novnc/noVNC.git ~/noVNC
+          git clone https://github.com/novnc/websockify.git ~/noVNC/utils/websockify
+          
+          # Start noVNC web server on local port 6080 pointing to VNC port 5900
+          ~/noVNC/utils/novnc_proxy --vnc localhost:5900 --listen 6080 > novnc.log 2>&1 &
+          sleep 3
+
+      - name: Start Public Web Tunnel (bore)
+        run: |
+          # Install bore tunnel
+          curl -sL https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-apple-darwin.tar.gz | tar -xz
+          sudo mv bore /usr/local/bin/
+
+          # Expose the noVNC web port (6080)
+          bore local 6080 --to bore.pub > bore.log 2>&1 &
+          sleep 5
+
+          echo "=========================================="
+          echo " IN-BROWSER MACOS DESKTOP CONNECTION "
+          echo "=========================================="
+          echo "Password: secret123"
+          echo "Open this link in Chrome or Edge:"
+          cat bore.log
+          echo "=========================================="
+
+      - name: Keep Runner Alive for 1 Hour
+        run: |
+          echo "Desktop live! Auto-shutdown in 60 minutes."
+          sleep 3600
