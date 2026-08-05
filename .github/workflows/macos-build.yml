@@ -1,0 +1,26 @@
+name: Run macOS Environment
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Allows you to manually trigger the run from the Actions tab
+
+jobs:
+  build-on-mac:
+    # Specifies the latest Apple Silicon (M1/M2) GitHub-hosted macOS runner
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Verify macOS Environment
+        run: |
+          echo "Running on macOS hardware:"
+          sw_vers
+          uname -m
+          xcode-select --version
+
+      - name: Run Swift or macOS Commands
+        run: |
+          echo "Hello from GitHub's Mac Cloud!"
