@@ -1,0 +1,52 @@
+name: Interactive macOS VNC Session
+
+on:
+  workflow_dispatch: # Trigger manually from the Actions tab
+
+jobs:
+  mac-vnc-session:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Enable Screen Sharing & Set VNC Password
+        run: |
+          # 1. Change password for 'runner' user to 'secret123'
+          sudo sysadminctl -adminUser runner -adminPassword "" -resetPasswordFor runner -newPassword secret123
+
+          # 2. Enable Apple Remote Desktop / VNC
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate -configure -access -on \
+            -clientconfigure -instances -users runner \
+            -access -on -privs -all \
+            -restart -agent -console
+
+      - name: Install and Start Free TCP Tunnel (bore)
+        run: |
+          # Download bore (open-source tunnel binary)
+          curl -sL https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-apple-darwin.tar.gz | tar -xz
+          sudo mv bore /usr/local/bin/
+
+          # Start bore tunnel pointing to local VNC port 5900 on public server bore.pub
+          bore local 5900 --to bore.pub > bore.log 2>&1 &
+          
+          # Wait 5 seconds for tunnel connection
+          sleep 5
+
+          # Print the assigned connection address
+          echo "=========================================="
+          echo " VNC DESKTOP CONNECTION DETAILS "
+          echo "=========================================="
+          echo "Username: runner"
+          echo "Password: secret123"
+          echo "Connection Address:"
+          cat bore.log
+          echo "=========================================="
+
+      - name: Keep Runner Alive for 1 Hour
+        run: |
+          echo "VNC session successfully started! Shutting down in 60 minutes."
+          sleep 3600
+          echo "1 hour reached. Destroying runner..."
